@@ -498,17 +498,24 @@ with tabs[4]:
                 disp_df["Reg_No"].str.contains(search, case=False, na=False))
         disp_df = disp_df[mask]
 
-    st.dataframe(
+# Pandas 2.1+ renamed applymap → map; this guard supports all versions
+    _style_fn = lambda v: (
+        "background-color:#c8e6c9;color:#1b5e20" if v == "Pass"
+        else "background-color:#ffcdd2;color:#b71c1c" if v == "Fail"
+        else ""
+    )
+    _styler = (
         disp_df.style
         .background_gradient(subset=["TotalMarks"], cmap="RdYlGn", vmin=0, vmax=100)
-        .applymap(
-    lambda v: "background-color:#c8e6c9;color:#1b5e20" if v=="Pass"
-    else "background-color:#ffcdd2;color:#b71c1c" if v=="Fail" else "",
-    subset=["Pass_Fail"]
-)
-        .format({c:"{:.2f}" for c in disp_df.select_dtypes("float").columns}),
-        use_container_width=True, height=500,
+        .format({c: "{:.2f}" for c in disp_df.select_dtypes("float").columns})
     )
+    # Apply using whichever method this pandas version supports
+    if hasattr(_styler, "map"):
+        _styler = _styler.map(_style_fn, subset=["Pass_Fail"])
+    else:
+        _styler = _styler.applymap(_style_fn, subset=["Pass_Fail"])
+
+    st.dataframe(_styler, use_container_width=True, height=500)
 
     if clo_st:
         st.markdown('<div class="section-header">📋 CLO Attainment Summary</div>',
