@@ -498,22 +498,50 @@ with tabs[4]:
                 disp_df["Reg_No"].str.contains(search, case=False, na=False))
         disp_df = disp_df[mask]
 
-# Pandas 2.1+ renamed applymap → map; this guard supports all versions
-    _style_fn = lambda v: (
-        "background-color:#c8e6c9;color:#1b5e20" if v == "Pass"
-        else "background-color:#ffcdd2;color:#b71c1c" if v == "Fail"
-        else ""
-    )
-    _styler = (
-        disp_df.style
-        .background_gradient(subset=["TotalMarks"], cmap="RdYlGn", vmin=0, vmax=100)
-        .format({c: "{:.2f}" for c in disp_df.select_dtypes("float").columns})
-    )
-    # Apply using whichever method this pandas version supports
-    if hasattr(_styler, "map"):
-        _styler = _styler.map(_style_fn, subset=["Pass_Fail"])
-    else:
-        _styler = _styler.applymap(_style_fn, subset=["Pass_Fail"])
+    # ── Matplotlib-free TotalMarks gradient (red→yellow→green) ──────────────
+    def _marks_gradient(col):
+        """Pure-CSS RdYlGn equivalent — no matplotlib required."""
+        styles = []
+        for v in col:
+            try:
+                pct = float(v)
+            except (TypeError, ValueError):
+                styles.append("")
+                continue
+            pct = max(0.0, min(100.0, pct))
+            if pct < 50:          # red → yellow  (0-50)
+                t   = pct / 50.0
+                r   = 255
+                g   = int(255 * t)
+                b   = 0
+            else:                 # yellow → green (50-100)
+                t   = (pct - 50) / 50.0
+                r   = int(255 * (1 - t))
+                g   = 200
+                b   = 0
+            lum = 0.299*r + 0.587*g + 0.114*b
+            txt = "#000000" if lum > 140 else "#ffffff"
+            styles.append(f"background-color:rgb({r},{g},{b});color:{txt}")
+        return styles
+
+    # ── Pass/Fail cell colouring (pandas 2.1+ uses .map, older uses .applymap)
+    def _pass_fail_style(v):
+        if v == "Pass":
+            return "background-color:#c8e6c9;color:#1b5e20;font-weight:700"
+        if v == "Fail":
+            return "background-color:#ffcdd2;color:#b71c1c;font-weight:700"
+        return ""
+
+    _styler = disp_df.style
+    if "TotalMarks" in disp_df.columns:
+        _styler = _styler.apply(_marks_gradient, subset=["TotalMarks"])
+    if "Pass_Fail" in disp_df.columns:
+        # .map is the pandas 2.1+ name; fall back to .applymap for older versions
+        if hasattr(_styler, "map"):
+            _styler = _styler.map(_pass_fail_style, subset=["Pass_Fail"])
+        else:
+            _styler = _styler.applymap(_pass_fail_style, subset=["Pass_Fail"])
+    _styler = _styler.format({c: "{:.2f}" for c in disp_df.select_dtypes("float").columns})
 
     st.dataframe(_styler, use_container_width=True, height=500)
 
