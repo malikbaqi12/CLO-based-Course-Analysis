@@ -501,9 +501,11 @@ with tabs[4]:
     st.dataframe(
         disp_df.style
         .background_gradient(subset=["TotalMarks"], cmap="RdYlGn", vmin=0, vmax=100)
-        .applymap(lambda v: "background-color:#c8e6c9;color:#1b5e20" if v=="Pass"
-                  else "background-color:#ffcdd2;color:#b71c1c" if v=="Fail" else "",
-                  subset=["Pass_Fail"])
+        .applymap(
+    lambda v: "background-color:#c8e6c9;color:#1b5e20" if v=="Pass"
+    else "background-color:#ffcdd2;color:#b71c1c" if v=="Fail" else "",
+    subset=["Pass_Fail"]
+)
         .format({c:"{:.2f}" for c in disp_df.select_dtypes("float").columns}),
         use_container_width=True, height=500,
     )
